@@ -107,6 +107,6 @@ def handleSigTERM():
 signal.signal(signal.SIGTERM, handleSigTERM)  
 
 #RelayServer(("0.0.0.0", 8086), ("www.veracode.com", 80))
-RelayServer(("0.0.0.0", 8086), ("127.0.0.1", 8888))
+RelayServer(("0.0.0.0", 8086), ("127.0.0.1", 8888)) #listen on first, forward to second
 asyncore.loop()
 
