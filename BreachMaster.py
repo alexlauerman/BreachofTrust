@@ -4,6 +4,8 @@ import urllib2
 import string
 import heapq
 import json
+from collections import Counter
+
 
 #server stuff
 import tornado.httpserver
@@ -65,12 +67,14 @@ class LoginHandler(tornado.web.RequestHandler):
 #provides client with next values
 class NextHandler(tornado.web.RequestHandler):
 
-	dictionary = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_"
+	#dictionary = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_"
 	#dictionary = "abcdefg"
+	dictionary = "abc"
 	tempdictionary = []
 	prefix = ""
 	alltimemin = -1
 	responses = []
+	iterations = 5
 
 	#read file and get size of last packet
 	def getSize(self):
@@ -86,11 +90,46 @@ class NextHandler(tornado.web.RequestHandler):
 			print "file responsesize does not exist"
 			return 500
 
+	def flattenResponses(self):
+		newResponses = []
+
+		for x in range(len(self.tempdictionary)/self.iterations):
+			
+			c = self.tempdictionary[x*self.iterations] #once for each letter
+
+			#get all where tempdict[i]
+			#indices = [i for i, x in enumerate(self.responses)[1] if x == c]
+			tempresponses = []
+			lengths = []
+
+			print "responses" + str(self.responses)
+			for r in self.responses: #get every length
+				if r[1] == c: 		 #if value matches what we're looking for
+					tempresponses.append(r)
+					#build list of just lengths
+					lengths.append(r[0])
+
+			print "lengths: " + str(lengths)
+
+			#find the mode
+			data = Counter(lengths)
+
+			print "data: " + str(data)
+
+			#add it to the 
+			newResponses.append([data.most_common(1)[0][0], c]) 
+
+		print "newResponses" + str(newResponses) 
+
+		#reset the responses with the cleaned list
+		self.responses = newResponses
+
 	#find the shortest response(s)
 	def findminimum(self):
+		self.flattenResponses()
 		minimum = []
-		minimum = [self.responses[0][1]]
-		minimumlen = self.responses[0][0]
+		minimum = [self.responses[0][1]]   # self.responses[X][1] = the guess
+		minimumlen = self.responses[0][0]  # self.responses[X][0] = the length 
 
 		for r in self.responses[1:]: #dont redo the first one
 			print "S:" + str(r[0])
@@ -105,24 +144,31 @@ class NextHandler(tornado.web.RequestHandler):
 
 
 	#build a new dictionary to work off of -- used for when there is a "tie" between chars
-	def builddictionary(self, minchars, dictionary):
+	def buildDictionary(self, dictionary, minchars=None):
 		newdict = []
 
-		for a in minchars:
+		if minchars == None:
 			for d in dictionary:
-				newdict.append(a + d)
+				for i in range(self.iterations):
+					newdict.append(d)
+		else:
+			for a in minchars:
+				for d in dictionary:
+					for i in range(self.iterations):
+						newdict.append(a + d)
 
 		return newdict
 
 
-	#returns next value to BF with
-	def getNext(self, last):
+	#gets next value to BF with
+	def getNext(self, last, lastIndex):
 		self.auto_etag = False
 
 		#try:
-		dIndex = self.tempdictionary.index(last)
-		if (dIndex < len(self.tempdictionary)-1):
-			next = self.tempdictionary[dIndex+1]
+		#print "debug:" + str(lastIndex) + str(len(self.tempdictionary)-1)
+		if (lastIndex < len(self.tempdictionary)-1):
+			next = self.tempdictionary[lastIndex+1]
+			nextIndex = lastIndex+1
 		else: #handle end of tempdict
 
 			#find minimum
@@ -146,13 +192,14 @@ class NextHandler(tornado.web.RequestHandler):
 			prefix = minchars 
 
 			#rebuild temp dictionary
-			self.tempdictionary = self.builddictionary(minchars, self.dictionary)
+			self.tempdictionary = self.buildDictionary(self.dictionary, minchars)
 			print "tempdict: " + str(self.tempdictionary)		
 			self.responses = []
 
 			next = self.tempdictionary[0]
+			nextIndex = 0
 
-		return next
+		return (next, nextIndex)
 		#except:
 		#	print "couldnt get index for: " + last
 
@@ -175,11 +222,10 @@ class NextHandler(tornado.web.RequestHandler):
 
 
 		if req['last'] == "" or req['last'] == None:  #first request
-			print "Creating Files"
-			for a in self.dictionary:
-				self.tempdictionary.append(a)
+			print "First Request - Creating Files"
+			self.tempdictionary = self.buildDictionary(self.dictionary)
 
-			self.write(json.dumps( {'next': self.dictionary[0], 'prefix':"", 'tempdictionary':self.tempdictionary} ) )
+			self.write(json.dumps( {'next': self.dictionary[0], 'nextIndex':'0', 'prefix':"", 'tempdictionary':self.tempdictionary} ) )
 			f = open('responsesdict', 'w+') #creates and clears file
 			f.write("")
 			f.close()
@@ -200,20 +246,20 @@ class NextHandler(tornado.web.RequestHandler):
 		
 			#get latest response size and add it to responses dict
 			f = open('responsesdict', 'w+')
-			previous = self.tempdictionary[self.tempdictionary.index(req['last'])]
+			previous = self.tempdictionary[self.tempdictionary.index(req['last'])] #is this doing anything?
 
 			#print "previndex: "+ str(self.tempdictionary.index(req['last']))
 			#print "previous: " + previous
 
 			self.responses.append([self.getSize(), previous])
 			
-			next = self.getNext(req['last'])
+			next, nextIndex = self.getNext(req['last'], int(req['lastIndex']))
 
 			f.write(json.dumps(self.responses))
 			f.close()
 
 			#output result & call getnext
-			self.write( json.dumps( {'next': next, 'prefix':self.prefix, 'tempdictionary':self.tempdictionary} ) )
+			self.write( json.dumps( {'next': next, 'nextIndex':nextIndex, 'prefix':self.prefix, 'tempdictionary':self.tempdictionary} ) )
 			
 			#logging.info('Returning: ' + self.getNext(req['last']))
 
@@ -249,7 +295,7 @@ if __name__ == "__main__":
 
 	http_server = tornado.httpserver.HTTPServer(application,
 		ssl_options={
-		"certfile": "./cert.pem",
+		"certfile": "./cert.pem",  #create with openssl req  -nodes -new -x509  -keyout key.pem -out cert.pem
 		"keyfile": "./key.pem",
 
 	})

